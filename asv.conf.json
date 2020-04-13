@@ -1,0 +1,18 @@
+{
+    "version": 1,
+    "project": "joblib",
+    "project_url": "http://joblib.readthedocs.io/en/latest/",
+    "repo": "/home/pierreglaser/repos/joblib",
+    "branches": ["master"],
+    "environment_type": "virtualenv",
+    "matrix": {
+        "numpy": []
+    },
+    "pythons": ["3.6"],
+    "install_command": [
+        "python -mpip install -e /home/pierreglaser/repos/dask",
+        "python -mpip install -e /home/pierreglaser/repos/distributed",
+        "python -mpip install -e /home/pierreglaser/repos/joblib"
+    ],
+
+}
