@@ -14,5 +14,8 @@
         "python -mpip install -e /home/pierreglaser/repos/distributed",
         "python -mpip install -e /home/pierreglaser/repos/joblib"
     ],
-
+    // this needs to be overriden because the default directory (benchmarks/)
+    // collides with editable installs of repository containing a benchmarks/
+    // directory in their root
+    "benchmark_dir": "joblib_dask_benchmarks"
 }
