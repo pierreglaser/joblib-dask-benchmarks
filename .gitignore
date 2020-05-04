@@ -1,2 +1,5 @@
 env/
 results/
+dask-worker-space/
+*.prof
+*.html
