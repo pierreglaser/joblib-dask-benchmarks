@@ -1,11 +1,15 @@
+"""Benchmarks of core operations with backend-agnostic parameters
+
+The benchamrks
+- generally only manipulate numpy arrays
+- are not parametrized using backend-specific options.
+"""
 import time
 import threading
 
 from time import sleep
 
 import numpy as np
-
-from distributed import Client, LocalCluster
 
 from joblib import Parallel, delayed, parallel_backend
 
@@ -16,10 +20,10 @@ from .base import BenchmarkBase
 # ASV_PYTHONPATH/PYTHONPATH is set correctly, see the README for informations.
 
 
-def parallel_sum_on_slices(array, backend, release_gil=False):
+def parallel_op_on_slices(array, backend, task):
     slices = [array[i:] for i in range(1)]
     with parallel_backend(backend):
-        res = Parallel()(delayed(np.sum)(s) for s in slices)
+        res = Parallel()(delayed(task)(s) for s in slices)
     return res
 
 
@@ -42,19 +46,11 @@ def sleep_and_return(x, sleep_time=1):
     return x
 
 
-class TimeCoreCrossBackendBenchmarks(BenchmarkBase):
-    """Benchmarks of core operations with backend-agnostic parameters
-
-    The benchamrks
-    - generally only manipulate numpy arrays
-    - are not parametrized using backend-specific options.
-    """
+class TimeCoreBenchmarks(BenchmarkBase):
+    repeat = 1
 
     def setup(self, backend, n_workers, threads_per_worker):
         self._setup_backend(backend, n_workers, threads_per_worker)
-        self.large_array = (
-            np.ones(int(1e8)).astype(np.int8).reshape(int(1e7), 10)
-        )
 
     def time_simple_sleep(self, backend, n_workers, threads_per_worker):
         with parallel_backend(**self.backend_kwargs):
@@ -79,8 +75,46 @@ class TimeCoreCrossBackendBenchmarks(BenchmarkBase):
         with parallel_backend(**self.backend_kwargs):
             _ = Parallel(verbose=10)(delayed(id)(i) for i in range(100000))
 
+
+class TimeDataTransferBenchmarks(BenchmarkBase):
+
+    param_names = [
+        "backend",
+        "n_workers",
+        "threads_per_worker",
+        "input_size",
+        "reduce_in_worker",
+    ]
+    params = (
+        ["threading", "loky", "dask"],
+        [1, 4],
+        [1, 4],
+        [10000000],
+        [True, False],
+    )
+
+    def setup(
+        self,
+        backend,
+        n_workers,
+        threads_per_worker,
+        input_size,
+        reduce_in_worker,
+    ):
+        self._setup_backend(backend, n_workers, threads_per_worker)
+        self.large_array = np.arange(input_size).astype(np.int32)
+        if reduce_in_worker:
+            self.task = np.sum
+        else:
+            self.task = lambda x: x + 1
+
     def time_many_tasks_operating_on_same_data(
-        self, backend, n_workers, threads_per_worker
+        self,
+        backend,
+        n_workers,
+        threads_per_worker,
+        input_size,
+        reduce_in_worker,
     ):
         # We notice that dask is way slower than loky for this benchmark: this
         # is due to the costly scatter() call.
@@ -88,12 +122,15 @@ class TimeCoreCrossBackendBenchmarks(BenchmarkBase):
         # improvements as it prevents sending many time large numpy arrays to
         # the dask scheduler.
         with parallel_backend(**self.backend_kwargs):
-            _ = Parallel(verbose=10000)(
-                delayed(id)(self.large_array) for _ in range(300)
+            res = Parallel(verbose=10000)(
+                delayed(self.task)(self.large_array) for _ in range(10)
             )
+        import sys
+
+        print(sys.getsizeof(res))
 
     def time_many_tasks_operating_on_slices_of_same_data(
-        self, backend, n_workers, threads_per_worker
+        self, backend, n_workers, threads_per_worker, input_size
     ):
         # In this situation, large_array will be scattered/memmaped many times,
         # which is a waste of computations.
@@ -102,30 +139,44 @@ class TimeCoreCrossBackendBenchmarks(BenchmarkBase):
         # scattered/memmaped once
         with parallel_backend(**self.backend_kwargs):
             _ = Parallel(verbose=1000)(
-                delayed(id)(self.large_array[i:]) for i in range(10)
+                delayed(self.task)(self.large_array[i:]) for i in range(10)
             )
 
     def time_nested_calls_with_same_data_transfer_in_each_level(
-        self, backend, n_workers, threads_per_worker
+        self,
+        backend,
+        n_workers,
+        threads_per_worker,
+        input_size,
+        reduce_in_worker,
     ):
         # This is more of a non-regression test than a benchmark:
         # nested-scattering is partly broken in dask, see dask/distributed#3703
         with parallel_backend(**self.backend_kwargs):
             _ = Parallel()(
-                delayed(parallel_sum_on_slices)(self.large_array, backend)
+                delayed(parallel_op_on_slices)(
+                    self.large_array, backend, self.task
+                )
                 for _ in range(8)
             )
 
-    def time_slow_input_producer(self, backend, n_workers, threads_per_worker):
-        # Simulate the situation where the input generator given to Parallel
-        # takes time to produce new inputs. This can happen if this generator
-        # is ia LazyLoader reading large data from disk.
+    def time_slow_input_producer(
+        self,
+        backend,
+        n_workers,
+        threads_per_worker,
+        input_size,
+        reduce_in_worker,
+    ):
+        # simulate the situation where the input generator given to parallel
+        # takes time to produce new inputs. this can happen if this generator
+        # is ia lazyloader reading large data from disk.
         def slow_input_producer():
             for i in range(10):
-                time.sleep(1)
-                yield np.arange(i, i + 10000).astype(np.int8)
+                time.sleep(0.5)
+                yield self.large_array[i:]
 
         with parallel_backend(**self.backend_kwargs):
             _ = Parallel()(
-                delayed(sleep_and_return)(x) for x in slow_input_producer()
+                delayed(self.task)(x) for x in slow_input_producer()
             )
