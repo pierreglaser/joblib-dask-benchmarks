@@ -20,9 +20,9 @@ from .base import BenchmarkBase
 # ASV_PYTHONPATH/PYTHONPATH is set correctly, see the README for informations.
 
 
-def parallel_op_on_slices(array, backend, task):
-    slices = [array[i:] for i in range(1)]
-    with parallel_backend(backend):
+def parallel_op_on_slices(array, backend_kwargs, task):
+    slices = [array[i:] for i in range(50)]
+    with parallel_backend(**backend_kwargs):
         res = Parallel()(delayed(task)(s) for s in slices)
     return res
 
@@ -89,7 +89,7 @@ class TimeDataTransferBenchmarks(BenchmarkBase):
         ["threading", "loky", "dask"],
         [1, 4],
         [1, 4],
-        [10000000],
+        [10_000, 100_000, 1_000_000, 10_000_000],
         [True, False],
     )
 
@@ -122,15 +122,17 @@ class TimeDataTransferBenchmarks(BenchmarkBase):
         # improvements as it prevents sending many time large numpy arrays to
         # the dask scheduler.
         with parallel_backend(**self.backend_kwargs):
-            res = Parallel(verbose=10000)(
+            _ = Parallel()(
                 delayed(self.task)(self.large_array) for _ in range(10)
             )
-        import sys
-
-        print(sys.getsizeof(res))
 
     def time_many_tasks_operating_on_slices_of_same_data(
-        self, backend, n_workers, threads_per_worker, input_size
+        self,
+        backend,
+        n_workers,
+        threads_per_worker,
+        input_size,
+        reduce_in_worker,
     ):
         # In this situation, large_array will be scattered/memmaped many times,
         # which is a waste of computations.
@@ -138,7 +140,7 @@ class TimeDataTransferBenchmarks(BenchmarkBase):
         # smart-indexing situations where large_array will be only
         # scattered/memmaped once
         with parallel_backend(**self.backend_kwargs):
-            _ = Parallel(verbose=1000)(
+            _ = Parallel()(
                 delayed(self.task)(self.large_array[i:]) for i in range(10)
             )
 
@@ -155,9 +157,9 @@ class TimeDataTransferBenchmarks(BenchmarkBase):
         with parallel_backend(**self.backend_kwargs):
             _ = Parallel()(
                 delayed(parallel_op_on_slices)(
-                    self.large_array, backend, self.task
+                    self.large_array[i:], self.backend_kwargs, self.task
                 )
-                for _ in range(8)
+                for i in range(2)
             )
 
     def time_slow_input_producer(
