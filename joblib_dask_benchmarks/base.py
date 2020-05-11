@@ -1,5 +1,9 @@
+import socket
+
 from joblib import Parallel, delayed
-from distributed import Client, LocalCluster
+from distributed import Client
+
+from .utils import create_dask_cluster
 
 
 class BenchmarkBase:
@@ -14,10 +18,10 @@ class BenchmarkBase:
         self, backend: str, n_workers: int, threads_per_worker: int
     ):
         if backend == "dask":
-            cluster = LocalCluster(
+            cluster = create_dask_cluster(
+                use_slurm="margaret" in socket.gethostname(),
                 n_workers=n_workers,
-                threads_per_worker=threads_per_worker,
-                processes=True,
+                threads_per_worker=threads_per_worker
             )
             client = Client(cluster)
             self.cluster, self.client = cluster, client
