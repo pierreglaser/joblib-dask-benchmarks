@@ -2,6 +2,10 @@ Repository containing the benchmarks of `joblib` when relying on the `dask.distr
 
 ## How to run the benchmarks
 
+First, you need an old version of virtualenv. `asv` is not compatible with `virtualenv >= 20`.
+The latest compatible is `virtualenv 16.7.10`; to install it, run:
+``python -m pip install virtualenv==16.7.10``
+
 ### Using an existing environment
 
 To benchmark your locally installed `joblib` in an existing environment, set ``$PYTHONPATH`` to ``/path/to/joblib-dask-benchmarks``
