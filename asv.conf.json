@@ -6,12 +6,14 @@
     "branches": ["master"],
     "environment_type": "virtualenv",
     "matrix": {
-        "numpy": []
+        "numpy": [],
+        "dask": [],
+        "distributed": [],
+        "dask-jobqueue": [],
+        "scikit-learn": []
     },
     "pythons": ["3.6"],
     "install_command": [
-        "python -mpip install -e /home/pierreglaser/repos/dask",
-        "python -mpip install -e /home/pierreglaser/repos/distributed",
         "python -mpip install -e /home/pierreglaser/repos/joblib"
     ],
     // this needs to be overriden because the default directory (benchmarks/)
