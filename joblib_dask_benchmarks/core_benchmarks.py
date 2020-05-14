@@ -89,7 +89,7 @@ class TimeDataTransferBenchmarks(BenchmarkBase):
         ["threading", "loky", "dask"],
         [1, 4],
         [1, 4],
-        [10_000, 100_000, 1_000_000, 10_000_000],
+        [10_000, 100_000, 1_000_000, 10_000_000, 100_000_000],
         [True, False],
     )
 
@@ -123,7 +123,7 @@ class TimeDataTransferBenchmarks(BenchmarkBase):
         # the dask scheduler.
         with parallel_backend(**self.backend_kwargs):
             _ = Parallel()(
-                delayed(self.task)(self.large_array) for _ in range(10)
+                delayed(self.task)(self.large_array) for _ in range(200)
             )
 
     def time_many_tasks_operating_on_slices_of_same_data(
@@ -141,7 +141,7 @@ class TimeDataTransferBenchmarks(BenchmarkBase):
         # scattered/memmaped once
         with parallel_backend(**self.backend_kwargs):
             _ = Parallel()(
-                delayed(self.task)(self.large_array[i:]) for i in range(10)
+                delayed(self.task)(self.large_array[i:]) for i in range(50)
             )
 
     def time_nested_calls_with_same_data_transfer_in_each_level(
@@ -175,7 +175,7 @@ class TimeDataTransferBenchmarks(BenchmarkBase):
         # is ia lazyloader reading large data from disk.
         def slow_input_producer():
             for i in range(10):
-                time.sleep(0.5)
+                time.sleep(0.2)
                 yield self.large_array[i:]
 
         with parallel_backend(**self.backend_kwargs):
