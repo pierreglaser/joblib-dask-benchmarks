@@ -13,9 +13,6 @@
         "scikit-learn": []
     },
     "pythons": ["3.6"],
-    "install_command": [
-        "python -mpip install -e /home/pierreglaser/repos/joblib"
-    ],
     // this needs to be overriden because the default directory (benchmarks/)
     // collides with editable installs of repository containing a benchmarks/
     // directory in their root
